@@ -1,0 +1,1 @@
+nohup python -u trl_run.py > trl_out.txt  2>&1 &

@@ -1,0 +1,1 @@
+nohup python -u gemma_run.py > gemma_out.txt  2>&1 &
