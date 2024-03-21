@@ -33,7 +33,7 @@ from sklearn.model_selection import train_test_split
 # MODEL_PATH = "microsoft/deberta-v3-base"
 # MODEL_PATH = "distilbert/distilroberta-base"
 MODEL_PATH = 'mistralai/Mistral-7B-Instruct-v0.2'
-# MODEL_PATH = "google/gemma-2b-it"
+# MODEL_PATH = "google/gemma-7b-it"
 
 max_length = 1024
 
@@ -56,7 +56,7 @@ train, test = (
   create_data(pd.read_csv('./input/mydata/train.csv'), tokenizer, 'train'),
   create_data(pd.read_csv('./input/mydata/test.csv'), tokenizer, 'test'),
 )
-print(len(train), len(test))
+print('(train, test) =', len(train), len(test))
 
 
 def truncate_txt(text, length):
@@ -88,33 +88,25 @@ Rewritten Essay:
 
 """.strip()
 
+
 def formatting_func(example):
-  print(len(example))
   output_texts = []
   for i in range(len(example['original_text'])):
     prompt = tokenizer.apply_chat_template(
-      [{
-        'role': 'user',
-        'content' : gen_prompt(example['original_text'][i], example['rewritten_text'][i]) + '\n',
-      }],
+      [
+        {
+          'role': 'user',
+          'content' : gen_prompt(example['original_text'][i], example['rewritten_text'][i]),
+        }, {
+          'role': 'assistant',
+          'content' : example['rewrite_prompt'][i],
+        },
+      ],
       tokenize=False,
     )
-    text = f"{prompt}{example['rewrite_prompt'][i]}{tokenizer.eos_token}"
+    text = f"{prompt}{tokenizer.eos_token}"
     output_texts.append(text)
   return output_texts
-
-from trl import DataCollatorForCompletionOnlyLM
-instruction_template, response_template = tokenizer.apply_chat_template(
-  [{
-    'role':'user',
-    'content': 'abc123'
-  }],
-  tokenize=False,
-).split('abc123')
-instruction_template, response_template = instruction_template.strip(), response_template.strip()
-print(instruction_template, response_template)
-collator = DataCollatorForCompletionOnlyLM(response_template=response_template,
-                                           tokenizer=tokenizer,)
 
 
 from trl import SFTTrainer
@@ -166,7 +158,7 @@ def main(batch_size: int, num_epochs: int, lr: float, grad_accumulation_steps: i
         args=transformers.TrainingArguments(
             output_dir=save_path,
             per_device_train_batch_size=batch_size,
-            per_device_eval_batch_size=4,
+            per_device_eval_batch_size=1,
             gradient_accumulation_steps=grad_accumulation_steps,
             gradient_checkpointing=True,
             warmup_steps=2,
@@ -181,7 +173,7 @@ def main(batch_size: int, num_epochs: int, lr: float, grad_accumulation_steps: i
             fp16=True,
             tf32=use_tf32,
             logging_steps=1,
-            optim="adamw_bnb_8bit",
+            optim="paged_adamw_8bit",
             logging_dir='./logs/',
             # save_total_limit=3,
             save_only_model=True,
@@ -208,6 +200,7 @@ lora_target_modules_dict = {
   'distilbert/distilgpt2': ['c_attn'],
   'distilbert/distilroberta-base': ['query', 'key', 'value'],
   'mistralai/Mistral-7B-Instruct-v0.2': ["q_proj", "o_proj", "k_proj", "v_proj", "gate_proj", "up_proj", "down_proj"],
+  'google/gemma-7b-it': ["q_proj", "o_proj", "k_proj", "v_proj", "gate_proj", "up_proj", "down_proj"],
 }
 import json
 os.makedirs('./settings', exist_ok=True)
@@ -221,11 +214,11 @@ print(tokenizer.pad_token_id)
 
 
 batch_size = 1
-grad_accumulation_steps = 64
+grad_accumulation_steps = 4
 num_epochs = 10
 lr = 5e-5
-checkpointing_steps = 5
-eval_steps = 5
+checkpointing_steps = 10
+eval_steps = 10
 save_path = os.path.join('./working/trained_models/', MODEL_PATH)
 r = 32
 lora_alpha = 32
