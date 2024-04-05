@@ -2,8 +2,9 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers.utils.quantization_config import BitsAndBytesConfig
 import re
+import os
 from huggingface_hub import login
-login(token='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')
+login(token=os.environ['HF_TOKEN'])
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True

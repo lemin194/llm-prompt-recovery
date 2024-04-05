@@ -1,9 +1,5 @@
 import requests
 import os
-
-API_URL = "https://api-inference.huggingface.co/models/google/gemma-7b-it"
-hf_token = os.environ['HF_TOKEN']
-
 from huggingface_hub import InferenceClient
 import os
 
